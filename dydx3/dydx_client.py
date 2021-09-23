@@ -131,20 +131,20 @@ class Client(object):
         Get the private module, used for interacting with endpoints that
         require API-key auth.
         '''
-        if not self._private:
-            if self.api_key_credentials:
-                self._private = Private(
-                    host=self.host,
-                    network_id=self.network_id,
-                    stark_private_key=self.stark_private_key,
-                    default_address=self.default_address,
-                    api_key_credentials=self.api_key_credentials,
-                )
-            else:
-                raise Exception(
-                    'Private endpoints not supported ' +
-                    'since api_key_credentials were not specified',
-                )
+        if self._private:
+            return self._private
+        if not self.api_key_credentials:
+            raise Exception(
+                'Private endpoints not supported ' +
+                'since api_key_credentials were not specified',
+            )
+        self._private = Private(
+            host=self.host,
+            network_id=self.network_id,
+            stark_private_key=self.stark_private_key,
+            default_address=self.default_address,
+            api_key_credentials=self.api_key_credentials,
+        )       
         return self._private
 
     @property
@@ -153,20 +153,20 @@ class Client(object):
         Get the api_keys module, used for managing API keys. Requires
         Ethereum key auth.
         '''
-        if not self._api_keys:
-            if self.eth_signer:
-                self._api_keys = ApiKeys(
-                    host=self.host,
-                    eth_signer=self.eth_signer,
-                    network_id=self.network_id,
-                    default_address=self.default_address,
-                )
-            else:
-                raise Exception(
+        if self._api_keys:
+            return self._api_keys
+        if self.eth_signer:
+            raise Exception(
                     'API keys module is not supported since no Ethereum ' +
                     'signing method (web3, web3_account, web3_provider) was ' +
                     'provided',
                 )
+        self._api_keys = ApiKeys(
+            host=self.host,
+            eth_signer=self.eth_signer,
+            network_id=self.network_id,
+            default_address=self.default_address,
+        )
         return self._api_keys
 
     @property
@@ -175,46 +175,51 @@ class Client(object):
         Get the onboarding module, used to create a new user. Requires
         Ethereum key auth.
         '''
-        if not self._onboarding:
-            if self.eth_signer:
-                self._onboarding = Onboarding(
-                    host=self.host,
-                    eth_signer=self.eth_signer,
-                    network_id=self.network_id,
-                    default_address=self.default_address,
-                    stark_public_key=self.stark_public_key,
-                    stark_public_key_y_coordinate=(
-                        self.stark_public_key_y_coordinate
-                    ),
-                )
-            else:
-                raise Exception(
+        if self._onboarding:
+            return self._onboarding
+        if not self.eth_signer:
+            raise Exception(
                     'Onboarding is not supported since no Ethereum ' +
                     'signing method (web3, web3_account, web3_provider) was ' +
                     'provided',
-                )
+            )
+        self._onboarding = Onboarding(
+            host=self.host,
+            eth_signer=self.eth_signer,
+            network_id=self.network_id,
+            default_address=self.default_address,
+            stark_public_key=self.stark_public_key,
+            stark_public_key_y_coordinate=(
+                self.stark_public_key_y_coordinate
+            ),
+        )
         return self._onboarding
+    
+    @property
+    def eth_private_key(self):
+        return getattr(self.eth_signer, '_private_key', None)
 
     @property
     def eth(self):
         '''
         Get the eth module, used for interacting with Ethereum smart contracts.
         '''
-        if not self._eth:
-            eth_private_key = getattr(self.eth_signer, '_private_key', None)
-            if self.web3 and eth_private_key:
-                self._eth = Eth(
-                    web3=self.web3,
-                    network_id=self.network_id,
-                    eth_private_key=eth_private_key,
-                    default_address=self.default_address,
-                    stark_public_key=self.stark_public_key,
-                    send_options=self.eth_send_options,
-                )
-            else:
-                raise Exception(
-                    'Eth module is not supported since neither web3 ' +
-                    'nor web3_provider was provided OR since neither ' +
-                    'eth_private_key nor web3_account was provided',
-                )
+        if self._eth:
+            return self._eth
+        if not self.web3:
+            raise Exception(
+                'Eth module is not supported since web3 was not provided'
+            )
+        if not self.eth_private_key:
+            raise Exception(
+                'Eth module is not supported since eth_private_key was not provided'
+            )
+        self._eth = Eth(
+            web3=self.web3,
+            network_id=self.network_id,
+            eth_private_key=self.eth_private_key,
+            default_address=self.default_address,
+            stark_public_key=self.stark_public_key,
+            send_options=self.eth_send_options,
+        )
         return self._eth
